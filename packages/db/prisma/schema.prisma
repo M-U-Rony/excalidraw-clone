@@ -7,29 +7,28 @@ datasource db {
   provider = "postgresql"
 }
 
-model User{
-  id Int @id @default(autoincrement())
-  email String @unique
-  name String
+model User {
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  name     String
   password String
-  room Room[]
-  chats Chat[]
+  room     Room[]
+  chats    Chat[]
 }
 
-model Room{
-  id Int @id @default(autoincrement())
-  name String
+model Room {
+  id      Int    @id @default(autoincrement())
+  name    String
   adminId Int
-  admin User @relation(fields: [adminId],references: [id])
-  chats Chat[]
+  admin   User   @relation(fields: [adminId], references: [id])
+  chats   Chat[]
 }
 
-model Chat{
-  id Int @id @default(autoincrement())
+model Chat {
+  id       Int    @id @default(autoincrement())
   messages String
-  adminId Int
-  admin User @relation(fields: [adminId],references: [id])
-  roomId Int
-  room Room @relation(fields: [roomId],references: [id])
-
+  adminId  Int
+  admin    User   @relation(fields: [adminId], references: [id])
+  roomId   Int
+  room     Room   @relation(fields: [roomId], references: [id])
 }

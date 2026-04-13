@@ -118,7 +118,7 @@ app.post('/createroom',middleware,async(req,res)=>{
         const room = await prismaClient.room.create({
             data: {
                 name: data.data.name,
-                adminId: userId
+                adminId: parseInt(userId,10)
             }
         })
 
@@ -132,6 +132,25 @@ app.post('/createroom',middleware,async(req,res)=>{
             message : "something wrong while creating room"
         })
     }
+    
+})
+
+app.get('/chats/:roomId',middleware,async(req,res)=>{
+
+    const roomId = req.params.roomId;
+
+    const messages = await prismaClient.chat.findMany({
+        where:{
+            roomId: Number(roomId)
+        },
+        orderBy:{
+            id: 'desc'
+        },
+        take: 50
+    })
+    console.log(messages)
+
+    res.json(messages);
     
 })
 
