@@ -15,3 +15,7 @@ export const signInSchema = z.object({
 export const creatRoomSchema = z.object({
     name: z.string(),
 })
+
+export const roomIdSchema = z.object({
+    name: z.string(),
+})

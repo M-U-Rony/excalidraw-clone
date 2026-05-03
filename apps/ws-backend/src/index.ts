@@ -16,37 +16,45 @@ const wss = new WebSocketServer({port: 8080})
 
 wss.on('connection', function connection(ws,request){
 
-    const url = request.url;
+    const cookieHeader = request.headers.cookie || "";
 
-    if(!url){
-        return
+    const cookies = Object.fromEntries(
+      cookieHeader.split("; ").map((cookie) => {
+        const [name, ...rest] = cookie.split("=");
+        return [name!.trim(), rest.join("=")];
+      })
+    );
+
+    const token = cookies.token;
+
+    if (!token) {
+      ws.close();
+      return;
     }
 
-    const queryParams = new URLSearchParams(url.split('?')[1]);
-    const token = queryParams.get('token') || "";
-    const decoded = jwt.verify(token,JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    if(typeof decoded == "string"){
-        ws.close();
-        return
+    if (typeof decoded === "string") {
+      ws.close();
+      return;
     }
 
-    if(!decoded || !decoded.userId){
-        ws.close();
-        return
+    if (!decoded || !decoded.userId) {
+      ws.close();
+      return;
     }
 
     allUser.push({
-        userId: decoded.userId,
-        Ws: ws,
-        rooms: []
+      userId: decoded.userId,
+      Ws: ws,
+      rooms: [],
     })
 
 
     ws.on('message', async function message(data){
 
         const parsedData = JSON.parse(data.toString());
-        // console.log(parsedData)
+        console.log(parsedData)
 
         if(parsedData.type ==="join-room"){
 
@@ -63,22 +71,21 @@ wss.on('connection', function connection(ws,request){
 
             user.rooms = user?.rooms.filter(x => x=== parsedData.roomId)
             
-        }else  if(parsedData.type ==="chat"){
+        }else  if(parsedData.type ==="draw"){
 
-            await prismaClient.chat.create({
-               data: {
-                adminId: decoded.userId,
-                messages: parsedData.message,
-                roomId: Number(parsedData.roomId)
-               }
-
-            })
+            // await prismaClient.chat.create({
+            //    data: {
+            //     adminId: decoded.userId,
+            //     messages: parsedData.shapes,
+            //     roomId: parsedData.roomId,
+            //    }
+            // })
 
             allUser.forEach((user)=>{
                 if(user.rooms.includes(parsedData.roomId)){
                     user.Ws.send(JSON.stringify({
-                        type: 'chat',
-                        message: parsedData.message,
+                        type: 'draw',
+                        shapes: parsedData.shapes,
                         roomId: parsedData.roomId
                     }))
                 }
