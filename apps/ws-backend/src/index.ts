@@ -11,7 +11,6 @@ interface User{
 
 const allUser: User[] =[];
 
-
 const wss = new WebSocketServer({port: 8080})
 
 wss.on('connection', function connection(ws,request){
@@ -82,7 +81,7 @@ wss.on('connection', function connection(ws,request){
             // })
 
             allUser.forEach((user)=>{
-                if(user.rooms.includes(parsedData.roomId)){
+                if(user.rooms.includes(parsedData.roomId) && user.Ws !== ws){
                     user.Ws.send(JSON.stringify({
                         type: 'draw',
                         shapes: parsedData.shapes,

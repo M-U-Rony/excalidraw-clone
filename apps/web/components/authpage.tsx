@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL = "http://localhost:3001";
@@ -12,7 +11,7 @@ type AuthPageProps = {
 };
 
 export default function Authpage({ isSignup }: AuthPageProps) {
-  const { setToken } = useAuth();
+
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +53,6 @@ export default function Authpage({ isSignup }: AuthPageProps) {
       }
 
       if (!isSignup) {
-        setToken(data.token);
         router.push("/dashboard");
       }
 

@@ -3,16 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
   const [roomName, setRoomName] = useState("");
   const router = useRouter();
-  const { token } = useAuth();
-
-  if (token) {
-    router.push("/dashboard");
-  }
 
   return (
     <main className="min-h-screen px-6 py-6 bg-[radial-gradient(circle_at_top_left,_#dbeafe_0%,_#eff6ff_28%,_#f8fafc_62%,_#e2e8f0_100%)] font-sans">

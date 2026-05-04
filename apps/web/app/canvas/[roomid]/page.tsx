@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useSocket } from "../../../hooks/useSocket";
+import { useParams } from "next/navigation";
 
 type Shape =
   | {
@@ -34,7 +35,9 @@ let width = 0;
 let height = 0;
 let clicked = false;
 
-function draw(ctx: CanvasRenderingContext2D,shapes:Shape[]) {
+function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasElement) {
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   shapes.forEach((e) => {
     if (e.type === "rect") {
@@ -61,6 +64,9 @@ export default function Canvas() {
   const shapeTypeRef = useRef(shapeType);
   const [shapes, setShapes] = useState<Shape[]>([]);
   const shapesRef = useRef<Shape[]>([]);
+  const params = useParams();
+  const roomId = params.roomid;
+  const [sendShapes, setSendShapes] = useState(false);
 
 
   //send and recieve data via socket
@@ -69,19 +75,21 @@ export default function Canvas() {
       socket.send(
         JSON.stringify({
           type: "join-room",
-          roomId: 1,
+          roomId: roomId,
         }),
       );
 
       socket.onmessage = (event) => {
         const parsedData = JSON.parse(event.data);
+        console.log("data recieved")
 
         if (parsedData.type === "draw") {
           setShapes(parsedData.shapes);
+          setSendShapes(true);
         }
       };
     }
-  }, [socket, loading]);
+  }, [socket, loading,roomId]);
 
   // update shapeTypeRef when shapeType changes
   useEffect(() => {
@@ -95,20 +103,21 @@ export default function Canvas() {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         shapesRef.current = shapes;
-        draw(ctx, shapes);
+        draw(ctx, shapes, canvas);
+        setSendShapes(false);
 
-        // if(socket){
-        //   socket.send(
-        //     JSON.stringify({
-        //       type: 'draw',
-        //       shapes: shapes,
-        //       roomId: 1
-        //     })
-        //   )
-        // }
+        if (socket && !loading && !sendShapes) {
+          socket.send(
+            JSON.stringify({
+              type: "draw",
+              roomId: roomId,
+              shapes: shapes,
+            }),
+          );
+        }
       }
     }
-  }, [shapes]);
+  }, [shapes,socket]);
 
     useEffect(() => {
       if (canvasref.current) {
@@ -145,8 +154,6 @@ export default function Canvas() {
               { type: "line", startX, startY, endX: e.clientX, endY: e.clientY },
             ]);
           }
-          
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         });
 
@@ -156,9 +163,7 @@ export default function Canvas() {
             width = e.clientX - startX;
             height = e.clientY - startY;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            draw(ctx, shapesRef.current);
-            // console.log(shapes)
+            draw(ctx, shapesRef.current,canvas);
 
             if (shapeTypeRef.current == "rectangle") {
               ctx.strokeRect(startX, startY, width, height);
@@ -195,7 +200,7 @@ export default function Canvas() {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, width, height);
-        draw(ctx, shapes);
+        draw(ctx, shapes, canvas);
       }
     };
 
