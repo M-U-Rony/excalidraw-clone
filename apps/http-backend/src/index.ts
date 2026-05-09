@@ -76,7 +76,6 @@ app.post("/signin", async (req, res) => {
     });
   }
 
-
   const { email, password } = data.data;
 
   try {
@@ -130,7 +129,7 @@ app.post("/createroom",async (req, res) => {
     const room = await prismaClient.room.create({
       data: {
         name: data.data.name,
-        adminId: parseInt(userId, 10),
+        adminId: 1
       },
     });
 
@@ -154,11 +153,7 @@ app.get("/chats/:roomId", async (req, res) => {
     const messages = await prismaClient.chat.findMany({
       where: {
         roomId: Number(roomId),
-      },
-      orderBy: {
-        id: "desc",
-      },
-      take: 50,
+      }
     });
     console.log(messages);
   

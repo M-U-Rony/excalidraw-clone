@@ -67,7 +67,26 @@ export default function Canvas() {
   const params = useParams();
   const roomId = params.roomid;
   const [sendShapes, setSendShapes] = useState(false);
+  const [size, setSize] = useState({ width: 0, height: 0 });
 
+
+  //fetch existing shapes from server when component mounts
+  useEffect(() => {
+    const fetchShapes = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:3001/chats/${roomId}`,
+        );
+        const data = await response.json();
+        console.log("Fetched shapes:", JSON.parse(data[0].shapes));
+        setShapes(JSON.parse(data[0].shapes));
+      } catch (error) {
+        console.log("Error fetching shapes:", error);
+      }
+    };
+
+    fetchShapes();
+  }, [roomId]);
 
   //send and recieve data via socket
   useEffect(() => {
@@ -81,7 +100,6 @@ export default function Canvas() {
 
       socket.onmessage = (event) => {
         const parsedData = JSON.parse(event.data);
-        console.log("data recieved")
 
         if (parsedData.type === "draw") {
           setShapes(parsedData.shapes);
@@ -107,6 +125,7 @@ export default function Canvas() {
         setSendShapes(false);
 
         if (socket && !loading && !sendShapes) {
+          console.log("Sending shapes:", shapes);
           socket.send(
             JSON.stringify({
               type: "draw",
@@ -119,95 +138,92 @@ export default function Canvas() {
     }
   }, [shapes,socket]);
 
-    useEffect(() => {
-      if (canvasref.current) {
-        const canvas = canvasref.current;
-        const ctx = canvas.getContext("2d");
+useEffect(() => {
+  const canvas = canvasref.current;
+  if (!canvas) return;
 
-        if (!ctx) {
-          return;
-        }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-        canvas.addEventListener("mousedown", (e) => {
-          clicked = true;
-          startX = e.clientX;
-          startY = e.clientY;
-        });
+  const handleMouseDown = (e: MouseEvent) => {
+    clicked = true;
+    startX = e.clientX;
+    startY = e.clientY;
+  };
 
-        canvas.addEventListener("mouseup", (e) => {
-          clicked = false;
+  const handleMouseUp = (e: MouseEvent) => {
+    clicked = false;
 
-          if (shapeTypeRef.current == "rectangle") {
-            setShapes((prevShapes) => [
-              ...prevShapes,
-              { type: "rect", x: startX, y: startY, width, height },
-            ]);
+    if (shapeTypeRef.current == "rectangle") {
+      setShapes((prevShapes) => [
+        ...prevShapes,
+        { type: "rect", x: startX, y: startY, width, height },
+      ]);
+    } else if (shapeTypeRef.current == "circle") {
+      setShapes((prevShapes) => [
+        ...prevShapes,
+        { type: "circle", centerX, centerY, radius },
+      ]);
+    } else {
+      setShapes((prevShapes) => [
+        ...prevShapes,
+        { type: "line", startX, startY, endX: e.clientX, endY: e.clientY },
+      ]);
+    }
+  };
 
-          } else if (shapeTypeRef.current == "circle") {
-            setShapes((prevShapes) => [
-              ...prevShapes,
-              { type: "circle", centerX, centerY, radius },
-            ]);
-          } else {
-            setShapes((prevShapes) => [
-              ...prevShapes,
-              { type: "line", startX, startY, endX: e.clientX, endY: e.clientY },
-            ]);
-          }
+  const handleMouseMove = (e: MouseEvent) => {
+    if (clicked) {
+      width = e.clientX - startX;
+      height = e.clientY - startY;
 
-        });
+      draw(ctx, shapesRef.current, canvas);
 
-        canvas.addEventListener("mousemove", (e) => {
-          if (clicked) {
-            
-            width = e.clientX - startX;
-            height = e.clientY - startY;
+      if (shapeTypeRef.current == "rectangle") {
+        ctx.strokeRect(startX, startY, width, height);
+      } else if (shapeTypeRef.current == "circle") {
+        radius = Math.sqrt(width ** 2 + height ** 2) / 2;
+        centerX = startX + width / 2;
+        centerY = startY + height / 2;
 
-            draw(ctx, shapesRef.current,canvas);
-
-            if (shapeTypeRef.current == "rectangle") {
-              ctx.strokeRect(startX, startY, width, height);
-            } else if (shapeTypeRef.current == "circle") {
-              radius = Math.sqrt(width ** 2 + height ** 2) / 2;
-              centerX = startX + width / 2;
-              centerY = startY + height / 2;
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-              ctx.stroke();
-            } else {
-              ctx.beginPath();
-              ctx.moveTo(startX, startY);
-              ctx.lineTo(e.clientX, e.clientY);
-              ctx.stroke();
-            }
-          }
-        });
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(e.clientX, e.clientY);
+        ctx.stroke();
       }
-    }, []);
+    }
+  };
+
+  canvas.addEventListener("mousedown", handleMouseDown);
+  canvas.addEventListener("mouseup", handleMouseUp);
+  canvas.addEventListener("mousemove", handleMouseMove);
+
+  return () => {
+    canvas.removeEventListener("mousedown", handleMouseDown);
+    canvas.removeEventListener("mouseup", handleMouseUp);
+    canvas.removeEventListener("mousemove", handleMouseMove);
+  };
+}, []);
+
 
   // resize canvas on window resize
-  useEffect(() => {
-    const resizeCanvas = () => {
-      if (!canvasref.current) return;
+ useEffect(() => {
+  const updateSize = () => {
+    setSize({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+  };
 
-      const canvas = canvasref.current;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+  updateSize();
+  window.addEventListener("resize", updateSize);
 
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, width, height);
-        draw(ctx, shapes, canvas);
-      }
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
+  return () => window.removeEventListener("resize", updateSize);
+}, []);
 
   return (
     <div className="">
@@ -235,10 +251,12 @@ export default function Canvas() {
 
       <canvas
         ref={canvasref}
-        height={window.innerHeight}
-        width={window.innerWidth}
+        height={size.height}
+        width={size.width}
         className="border-2 border-black"
       />
     </div>
   );
 }
+
+//shapes goes to empty array when reloads

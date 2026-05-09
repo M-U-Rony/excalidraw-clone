@@ -53,7 +53,6 @@ wss.on('connection', function connection(ws,request){
     ws.on('message', async function message(data){
 
         const parsedData = JSON.parse(data.toString());
-        console.log(parsedData)
 
         if(parsedData.type ==="join-room"){
 
@@ -72,13 +71,33 @@ wss.on('connection', function connection(ws,request){
             
         }else  if(parsedData.type ==="draw"){
 
-            // await prismaClient.chat.create({
-            //    data: {
-            //     adminId: decoded.userId,
-            //     messages: parsedData.shapes,
-            //     roomId: parsedData.roomId,
-            //    }
-            // })
+            const existChat = await prismaClient.chat.findFirst({
+                where: {
+                    roomId: Number(parsedData.roomId),
+                }
+            })
+
+            if(!existChat){
+                await prismaClient.chat.create({
+                    data: {
+                        roomId: Number(parsedData.roomId),
+                        shapes: JSON.stringify(parsedData.shapes),
+                        adminId: 1
+                    }
+                });
+            }else{
+
+                await prismaClient.chat.update({
+                    where: {
+                        roomId:  Number(parsedData.roomId),
+                    },
+                    data: {
+                        shapes: JSON.stringify(parsedData.shapes)
+                    }
+                     
+                })
+            }
+
 
             allUser.forEach((user)=>{
                 if(user.rooms.includes(parsedData.roomId) && user.Ws !== ws){

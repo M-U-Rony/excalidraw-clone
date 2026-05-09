@@ -15,7 +15,6 @@ export function useSocket(){
         ws.onopen = () =>{
             setloading(false)
             setSocket(ws);
-            console.log('connected')
         }
 
         ws.onclose = () => {

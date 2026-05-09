@@ -47,7 +47,6 @@ export default function Authpage({ isSignup }: AuthPageProps) {
       });
 
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.message ?? "Request failed");
       }

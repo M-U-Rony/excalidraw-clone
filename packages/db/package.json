@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "exports":{
-    "./client" :"./dist/src/index.js"
+  "exports": {
+    "./client": "./dist/src/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "prisma": "^7.7.0"
+    "prisma": "^7.8.0"
   },
   "keywords": [],
   "author": "",

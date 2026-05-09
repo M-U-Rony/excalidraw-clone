@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Chat" ALTER COLUMN "shapes" SET NOT NULL,
+ALTER COLUMN "shapes" SET DATA TYPE TEXT;
