@@ -24,6 +24,11 @@ type Shape =
       startY: number;
       endX: number;
       endY: number;
+    }
+  | {
+      type: "eraser";
+      x: number;
+      y: number;
     };
 
 let startX = 0;
@@ -46,7 +51,7 @@ function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasEle
       ctx.beginPath();
       ctx.arc(e.centerX, e.centerY, e.radius, 0, 2 * Math.PI);
       ctx.stroke();
-    } else {
+    } else if(e.type == 'line') {
       ctx.beginPath();
       ctx.moveTo(e.startX, e.startY);
       ctx.lineTo(e.endX, e.endY);
@@ -57,7 +62,7 @@ function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasEle
 
 export default function Canvas() {
   const canvasref = useRef<HTMLCanvasElement>(null);
-  const [shapeType, setShapeType] = useState<"circle" | "rectangle" | "line">(
+  const [shapeType, setShapeType] = useState<"circle" | "rectangle" | "line" | "eraser">(
     "circle",
   );
   const { socket, loading } = useSocket();
@@ -125,7 +130,7 @@ export default function Canvas() {
         setSendShapes(false);
 
         if (socket && !loading && !sendShapes) {
-          console.log("Sending shapes:", shapes);
+          // console.log("Sending shapes:", shapes);
           socket.send(
             JSON.stringify({
               type: "draw",
@@ -164,7 +169,7 @@ useEffect(() => {
         ...prevShapes,
         { type: "circle", centerX, centerY, radius },
       ]);
-    } else {
+    } else if(shapeTypeRef.current == "line") {
       setShapes((prevShapes) => [
         ...prevShapes,
         { type: "line", startX, startY, endX: e.clientX, endY: e.clientY },
@@ -189,11 +194,39 @@ useEffect(() => {
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         ctx.stroke();
-      } else {
+      } else if(shapeTypeRef.current == "line") {
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.lineTo(e.clientX, e.clientY);
         ctx.stroke();
+      }
+      else {
+
+        const newShapes = shapesRef.current.filter((shape) => {
+        if (shape.type === "line") {
+
+          const dx = shape.endX - shape.startX;
+          const dy = shape.endY - shape.startY;
+
+          const lineLength = Math.sqrt(dx * dx + dy * dy);
+
+          const cross = dx * (e.clientY - shape.startY)  - (e.clientX - shape.startX) * dy;
+
+          const distance = Math.abs(cross) / lineLength;
+
+
+          const withinX = e.clientX >= Math.min(shape.startX, shape.endX) - 10 && e.clientX <= Math.max(shape.startX, shape.endX) + 10;
+          const withinY = e.clientY >= Math.min(shape.startY, shape.endY) - 10 && e.clientY <= Math.max(shape.startY, shape.endY) + 10;
+
+          if (distance <= 8 && withinX && withinY) {
+            console.log("crossed")
+            return false; 
+          }
+        }
+        return true;
+      });
+
+      setShapes(newShapes)
       }
     }
   };
@@ -246,6 +279,12 @@ useEffect(() => {
           onClick={() => setShapeType("line")}
         >
           Line
+        </button>
+        <button
+          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          onClick={() => setShapeType("eraser")}
+        >
+          Eraser
         </button>
       </div>
 
