@@ -223,8 +223,40 @@ useEffect(() => {
             return false; 
           }
         }
+
+        
+      else if(shape.type == "circle"){
+        const dx = e.clientX - shape.centerX;
+        const dy = e.clientY - shape.centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (Math.abs(distance - shape.radius) <= 8) {
+          return false;
+        }
+      }
+
+      else if (shape.type === "rect") {
+  const { x, y, width, height } = shape;
+  const threshold = 8;
+
+  const onTopEdge    = Math.abs(e.clientY - y) <= threshold 
+                    && e.clientX >= x && e.clientX <= x + width;
+
+  const onBottomEdge = Math.abs(e.clientY - (y + height)) <= threshold 
+                    && e.clientX >= x && e.clientX <= x + width;
+
+  const onLeftEdge   = Math.abs(e.clientX - x) <= threshold 
+                    && e.clientY >= y && e.clientY <= y + height;
+
+  const onRightEdge  = Math.abs(e.clientX - (x + width)) <= threshold 
+                    && e.clientY >= y && e.clientY <= y + height;
+
+  if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) {
+    return false; // erase it
+  }
+}
         return true;
-      });
+      })
 
       setShapes(newShapes)
       }
