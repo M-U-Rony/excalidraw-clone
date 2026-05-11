@@ -13,6 +13,7 @@ export function useSocket(){
         const ws = new WebSocket(`ws://localhost:8080`);
 
         ws.onopen = () =>{
+            console.log('connected')
             setloading(false)
             setSocket(ws);
         }

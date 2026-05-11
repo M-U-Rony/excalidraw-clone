@@ -25,6 +25,7 @@ wss.on('connection', function connection(ws,request){
     );
 
     const token = cookies.token;
+    // console.log("Received token:", token);
 
     if (!token) {
       ws.close();

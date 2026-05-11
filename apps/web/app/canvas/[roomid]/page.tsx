@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSocket } from "../../../hooks/useSocket";
 import { useParams } from "next/navigation";
 
@@ -39,10 +39,22 @@ let radius = 0;
 let width = 0;
 let height = 0;
 let clicked = false;
+let panX = 0;
+let panY = 0;
+let lastX = 0;
+let lastY = 0;
+let scale = 1;
 
-function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasElement) {
+function draw(
+  ctx: CanvasRenderingContext2D,
+  shapes: Shape[],
+  canvas: HTMLCanvasElement,
+) {
 
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
   shapes.forEach((e) => {
     if (e.type === "rect") {
@@ -51,7 +63,7 @@ function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasEle
       ctx.beginPath();
       ctx.arc(e.centerX, e.centerY, e.radius, 0, 2 * Math.PI);
       ctx.stroke();
-    } else if(e.type == 'line') {
+    } else if (e.type == "line") {
       ctx.beginPath();
       ctx.moveTo(e.startX, e.startY);
       ctx.lineTo(e.endX, e.endY);
@@ -62,11 +74,11 @@ function draw(ctx: CanvasRenderingContext2D,shapes:Shape[],canvas: HTMLCanvasEle
 
 export default function Canvas() {
   const canvasref = useRef<HTMLCanvasElement>(null);
-  const [shapeType, setShapeType] = useState<"circle" | "rectangle" | "line" | "eraser">(
-    "circle",
-  );
+  const [buttonType, setButtonType] = useState<
+    "circle" | "rectangle" | "line" | "eraser"|"zoomin"|"zoomout"|"drag"
+  >("circle");
   const { socket, loading } = useSocket();
-  const shapeTypeRef = useRef(shapeType);
+  const shapeTypeRef = useRef(buttonType);
   const [shapes, setShapes] = useState<Shape[]>([]);
   const shapesRef = useRef<Shape[]>([]);
   const params = useParams();
@@ -75,13 +87,20 @@ export default function Canvas() {
   const [size, setSize] = useState({ width: 0, height: 0 });
 
 
+function applyTransform() {
+  const canvas = canvasref.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.setTransform(1, 0, 0, 1, panX, panY);
+  draw(ctx, shapesRef.current, canvas);
+}
   //fetch existing shapes from server when component mounts
   useEffect(() => {
     const fetchShapes = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:3001/chats/${roomId}`,
-        );
+        const response = await fetch(`http://localhost:3001/chats/${roomId}`);
         const data = await response.json();
         console.log("Fetched shapes:", JSON.parse(data[0].shapes));
         setShapes(JSON.parse(data[0].shapes));
@@ -106,18 +125,18 @@ export default function Canvas() {
       socket.onmessage = (event) => {
         const parsedData = JSON.parse(event.data);
 
-        if (parsedData.type === "draw") {
+        if (parsedData.type === "draw" && !sendShapes) {
           setShapes(parsedData.shapes);
           setSendShapes(true);
         }
       };
     }
-  }, [socket, loading,roomId]);
+  }, [socket, loading, roomId]);
 
   // update shapeTypeRef when shapeType changes
   useEffect(() => {
-    shapeTypeRef.current = shapeType;
-  }, [shapeType]);
+    shapeTypeRef.current = buttonType;
+  }, [buttonType]);
 
   // update shapesRef when shapes changes
   useEffect(() => {
@@ -141,182 +160,265 @@ export default function Canvas() {
         }
       }
     }
-  }, [shapes,socket]);
+  }, [shapes, socket]);
 
-useEffect(() => {
-  const canvas = canvasref.current;
-  if (!canvas) return;
+  useEffect(() => {
+    const canvas = canvasref.current;
+    if (!canvas) return;
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-  const handleMouseDown = (e: MouseEvent) => {
-    clicked = true;
-    startX = e.clientX;
-    startY = e.clientY;
-  };
+    const handleMouseDown = (e: MouseEvent) => {
+      clicked = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    };
 
-  const handleMouseUp = (e: MouseEvent) => {
-    clicked = false;
-
-    if (shapeTypeRef.current == "rectangle") {
-      setShapes((prevShapes) => [
-        ...prevShapes,
-        { type: "rect", x: startX, y: startY, width, height },
-      ]);
-    } else if (shapeTypeRef.current == "circle") {
-      setShapes((prevShapes) => [
-        ...prevShapes,
-        { type: "circle", centerX, centerY, radius },
-      ]);
-    } else if(shapeTypeRef.current == "line") {
-      setShapes((prevShapes) => [
-        ...prevShapes,
-        { type: "line", startX, startY, endX: e.clientX, endY: e.clientY },
-      ]);
-    }
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (clicked) {
-      width = e.clientX - startX;
-      height = e.clientY - startY;
-
-      draw(ctx, shapesRef.current, canvas);
+    const handleMouseUp = (e: MouseEvent) => {
+      clicked = false;
 
       if (shapeTypeRef.current == "rectangle") {
-        ctx.strokeRect(startX, startY, width, height);
+        setShapes((prevShapes) => [
+          ...prevShapes,
+          { type: "rect", x: startX, y: startY, width, height },
+        ]);
       } else if (shapeTypeRef.current == "circle") {
-        radius = Math.sqrt(width ** 2 + height ** 2) / 2;
-        centerX = startX + width / 2;
-        centerY = startY + height / 2;
-
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-      } else if(shapeTypeRef.current == "line") {
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(e.clientX, e.clientY);
-        ctx.stroke();
+        setShapes((prevShapes) => [
+          ...prevShapes,
+          { type: "circle", centerX, centerY, radius },
+        ]);
+      } else if (shapeTypeRef.current == "line") {
+        setShapes((prevShapes) => [
+          ...prevShapes,
+          { type: "line", startX, startY, endX: e.clientX - panX, endY: e.clientY - panY },
+        ]);
       }
-      else {
+    };
 
-        const newShapes = shapesRef.current.filter((shape) => {
-        if (shape.type === "line") {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (clicked) {
 
-          const dx = shape.endX - shape.startX;
-          const dy = shape.endY - shape.startY;
+        const currentX = e.clientX - panX;
+        const currentY = e.clientY - panY;
 
-          const lineLength = Math.sqrt(dx * dx + dy * dy);
+        width = currentX - startX;
+        height = currentY - startY;
 
-          const cross = dx * (e.clientY - shape.startY)  - (e.clientX - shape.startX) * dy;
+        draw(ctx, shapesRef.current, canvas);
+        ctx.setTransform(1, 0, 0, 1, panX, panY);
 
-          const distance = Math.abs(cross) / lineLength;
+        if(shapeTypeRef.current == "drag"){
+          const dx = e.clientX - lastX;
+          const dy = e.clientY - lastY;
 
+          panX += dx;
+          panY += dy;
 
-          const withinX = e.clientX >= Math.min(shape.startX, shape.endX) - 10 && e.clientX <= Math.max(shape.startX, shape.endX) + 10;
-          const withinY = e.clientY >= Math.min(shape.startY, shape.endY) - 10 && e.clientY <= Math.max(shape.startY, shape.endY) + 10;
+          lastX = e.clientX;
+          lastY = e.clientY;
 
-          if (distance <= 8 && withinX && withinY) {
-            console.log("crossed")
-            return false; 
-          }
+          applyTransform();
+          return;
         }
 
-        
-      else if(shape.type == "circle"){
-        const dx = e.clientX - shape.centerX;
-        const dy = e.clientY - shape.centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (shapeTypeRef.current == "rectangle") {
+          ctx.strokeRect(startX, startY, width, height);
+        } else if (shapeTypeRef.current == "circle") {
+          radius = Math.sqrt(width ** 2 + height ** 2) / 2;
+          centerX = startX + width / 2;
+          centerY = startY + height / 2;
 
-        if (Math.abs(distance - shape.radius) <= 8) {
-          return false;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        } else if (shapeTypeRef.current == "line") {
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(e.clientX, e.clientY);
+          ctx.stroke();
+        } else {
+
+          // erase shapes
+          setShapes(prevShapes => prevShapes.filter((shape) => {
+            if (shape.type === "line") {
+              const dx = shape.endX - shape.startX;
+              const dy = shape.endY - shape.startY;
+
+              const lineLength = Math.sqrt(dx * dx + dy * dy);
+
+              const cross =
+                dx * (e.clientY - shape.startY) -
+                (e.clientX - shape.startX) * dy;
+
+              const distance = Math.abs(cross) / lineLength;
+
+              const withinX =
+                e.clientX >= Math.min(shape.startX, shape.endX) - 10 &&
+                e.clientX <= Math.max(shape.startX, shape.endX) + 10;
+              const withinY =
+                e.clientY >= Math.min(shape.startY, shape.endY) - 10 &&
+                e.clientY <= Math.max(shape.startY, shape.endY) + 10;
+
+              if (distance <= 8 && withinX && withinY) {
+                console.log("crossed");
+                return false;
+              }
+            } else if (shape.type == "circle") {
+              const dx = e.clientX - shape.centerX;
+              const dy = e.clientY - shape.centerY;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+
+              if (Math.abs(distance - shape.radius) <= 8) {
+                return false;
+              }
+            } else if (shape.type === "rect") {
+              const { x, y, width, height } = shape;
+              const threshold = 8;
+
+              const onTopEdge =
+                Math.abs(e.clientY - y) <= threshold &&
+                e.clientX >= x &&
+                e.clientX <= x + width;
+
+              const onBottomEdge =
+                Math.abs(e.clientY - (y + height)) <= threshold &&
+                e.clientX >= x &&
+                e.clientX <= x + width;
+
+              const onLeftEdge =
+                Math.abs(e.clientX - x) <= threshold &&
+                e.clientY >= y &&
+                e.clientY <= y + height;
+
+              const onRightEdge =
+                Math.abs(e.clientX - (x + width)) <= threshold &&
+                e.clientY >= y &&
+                e.clientY <= y + height;
+
+              if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) {
+                return false;
+              }
+            }
+            return true;
+          }));
         }
       }
+    };
 
-      else if (shape.type === "rect") {
-  const { x, y, width, height } = shape;
-  const threshold = 8;
+    const handleScroll = (e: WheelEvent) => {
 
-  const onTopEdge    = Math.abs(e.clientY - y) <= threshold 
-                    && e.clientX >= x && e.clientX <= x + width;
+     e.preventDefault();
+     panX -= e.deltaX;
+     panY -= e.deltaY;
+      applyTransform();
+    };
 
-  const onBottomEdge = Math.abs(e.clientY - (y + height)) <= threshold 
-                    && e.clientX >= x && e.clientX <= x + width;
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("wheel", handleScroll);
 
-  const onLeftEdge   = Math.abs(e.clientX - x) <= threshold 
-                    && e.clientY >= y && e.clientY <= y + height;
-
-  const onRightEdge  = Math.abs(e.clientX - (x + width)) <= threshold 
-                    && e.clientY >= y && e.clientY <= y + height;
-
-  if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) {
-    return false; // erase it
-  }
-}
-        return true;
-      })
-
-      setShapes(newShapes)
-      }
-    }
-  };
-
-  canvas.addEventListener("mousedown", handleMouseDown);
-  canvas.addEventListener("mouseup", handleMouseUp);
-  canvas.addEventListener("mousemove", handleMouseMove);
-
-  return () => {
-    canvas.removeEventListener("mousedown", handleMouseDown);
-    canvas.removeEventListener("mouseup", handleMouseUp);
-    canvas.removeEventListener("mousemove", handleMouseMove);
-  };
-}, []);
-
+    return () => {
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("wheel", handleScroll);
+    };
+  }, []);
 
   // resize canvas on window resize
- useEffect(() => {
-  const updateSize = () => {
-    setSize({
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
-  };
+  useEffect(() => {
+    const updateSize = () => {
+      setSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
 
-  updateSize();
-  window.addEventListener("resize", updateSize);
+    updateSize();
+    window.addEventListener("resize", updateSize);
 
-  return () => window.removeEventListener("resize", updateSize);
-}, []);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  function zoomAt(centerX: number, centerY: number, factor: number) {
+
+  const canvasX = (centerX - panX) / scale;
+  const canvasY = (centerY - panY) / scale;
+
+  scale *= factor;
+
+  panX = centerX - canvasX * scale;
+  panY = centerY - canvasY * scale;
+
+  applyTransform();
+}
+
+      const handleZoomIn = () => {
+      const canvas = canvasref.current;
+      if (!canvas) return;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      zoomAt(centerX, centerY, 1.2);
+    };
+
+    const handleZoomOut = () => {
+      const canvas = canvasref.current;
+      if (!canvas) return;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      zoomAt(centerX, centerY, 0.8);
+    };
 
   return (
     <div className="">
       <div className="absolute top-4 left-4 flex gap-2">
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => setShapeType("circle")}
+          onClick={() => setButtonType("circle")}
         >
           Circle
         </button>
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => setShapeType("rectangle")}
+          onClick={() => setButtonType("rectangle")}
         >
           Rectangle
         </button>
 
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => setShapeType("line")}
+          onClick={() => setButtonType("line")}
         >
           Line
         </button>
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => setShapeType("eraser")}
+          onClick={() => setButtonType("eraser")}
         >
           Eraser
+        </button>
+        <button
+          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          onClick={() =>{ setButtonType("zoomin"); handleZoomIn();}}
+        
+        >
+          Zoom In
+        </button>
+        <button
+          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          onClick={() =>{ setButtonType("zoomout"); handleZoomOut();}}
+        >
+          Zoom Out
+        </button>
+        <button
+          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          onClick={() => setButtonType("drag")}
+        >
+          Drag
         </button>
       </div>
 
@@ -324,10 +426,8 @@ useEffect(() => {
         ref={canvasref}
         height={size.height}
         width={size.width}
-        className="border-2 border-black"
+        className={`border-2 border-black ${buttonType === "drag" ? "cursor-grab" : "cursor-crosshair"}`}
       />
     </div>
   );
 }
-
-//shapes goes to empty array when reloads
