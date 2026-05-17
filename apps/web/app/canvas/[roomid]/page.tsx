@@ -52,9 +52,11 @@ function draw(
 ) {
 
   ctx.save();
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.restore();
+
+  ctx.setTransform(scale, 0, 0, scale, panX, panY);
 
   shapes.forEach((e) => {
     if (e.type === "rect") {
@@ -93,10 +95,11 @@ function applyTransform() {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  ctx.setTransform(1, 0, 0, 1, panX, panY);
+  ctx.setTransform(scale, 0, 0, scale, panX, panY);
   draw(ctx, shapesRef.current, canvas);
 }
-  //fetch existing shapes from server when component mounts
+
+//fetch existing shapes from server when component mounts
   useEffect(() => {
     const fetchShapes = async () => {
       try {
@@ -208,7 +211,6 @@ function applyTransform() {
         height = currentY - startY;
 
         draw(ctx, shapesRef.current, canvas);
-        ctx.setTransform(1, 0, 0, 1, panX, panY);
 
         if(shapeTypeRef.current == "drag"){
           const dx = e.clientX - lastX;
@@ -237,74 +239,67 @@ function applyTransform() {
         } else if (shapeTypeRef.current == "line") {
           ctx.beginPath();
           ctx.moveTo(startX, startY);
-          ctx.lineTo(e.clientX, e.clientY);
+          const currentX = (e.clientX - panX) / scale;
+          const currentY = (e.clientY - panY) / scale;
+          ctx.lineTo(currentX, currentY);
           ctx.stroke();
         } else {
+  const canvasMouseX = (e.clientX - panX) / scale;
+  const canvasMouseY = (e.clientY - panY) / scale;
 
-          // erase shapes
-          setShapes(prevShapes => prevShapes.filter((shape) => {
-            if (shape.type === "line") {
-              const dx = shape.endX - shape.startX;
-              const dy = shape.endY - shape.startY;
+  setShapes(prevShapes => prevShapes.filter((shape) => {
+    if (shape.type === "line") {
+      const dx = shape.endX - shape.startX;
+      const dy = shape.endY - shape.startY;
+      const lineLength = Math.sqrt(dx * dx + dy * dy);
 
-              const lineLength = Math.sqrt(dx * dx + dy * dy);
+      const cross =
+        dx * (canvasMouseY - shape.startY) -
+        (canvasMouseX - shape.startX) * dy;
 
-              const cross =
-                dx * (e.clientY - shape.startY) -
-                (e.clientX - shape.startX) * dy;
+      const distance = Math.abs(cross) / lineLength;
 
-              const distance = Math.abs(cross) / lineLength;
+      const withinX =
+        canvasMouseX >= Math.min(shape.startX, shape.endX) - 10 &&
+        canvasMouseX <= Math.max(shape.startX, shape.endX) + 10;
+      const withinY =
+        canvasMouseY >= Math.min(shape.startY, shape.endY) - 10 &&
+        canvasMouseY <= Math.max(shape.startY, shape.endY) + 10;
 
-              const withinX =
-                e.clientX >= Math.min(shape.startX, shape.endX) - 10 &&
-                e.clientX <= Math.max(shape.startX, shape.endX) + 10;
-              const withinY =
-                e.clientY >= Math.min(shape.startY, shape.endY) - 10 &&
-                e.clientY <= Math.max(shape.startY, shape.endY) + 10;
+      if (distance <= 8 && withinX && withinY) return false;
 
-              if (distance <= 8 && withinX && withinY) {
-                console.log("crossed");
-                return false;
-              }
-            } else if (shape.type == "circle") {
-              const dx = e.clientX - shape.centerX;
-              const dy = e.clientY - shape.centerY;
-              const distance = Math.sqrt(dx * dx + dy * dy);
+    } else if (shape.type === "circle") {
+      const dx = canvasMouseX - shape.centerX;
+      const dy = canvasMouseY - shape.centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
 
-              if (Math.abs(distance - shape.radius) <= 8) {
-                return false;
-              }
-            } else if (shape.type === "rect") {
-              const { x, y, width, height } = shape;
-              const threshold = 8;
+      if (Math.abs(distance - shape.radius) <= 8) return false;
 
-              const onTopEdge =
-                Math.abs(e.clientY - y) <= threshold &&
-                e.clientX >= x &&
-                e.clientX <= x + width;
+    } else if (shape.type === "rect") {
+      const { x, y, width, height } = shape;
+      const threshold = 8;
 
-              const onBottomEdge =
-                Math.abs(e.clientY - (y + height)) <= threshold &&
-                e.clientX >= x &&
-                e.clientX <= x + width;
+      const onTopEdge =
+        Math.abs(canvasMouseY - y) <= threshold &&
+        canvasMouseX >= x && canvasMouseX <= x + width;
 
-              const onLeftEdge =
-                Math.abs(e.clientX - x) <= threshold &&
-                e.clientY >= y &&
-                e.clientY <= y + height;
+      const onBottomEdge =
+        Math.abs(canvasMouseY - (y + height)) <= threshold &&
+        canvasMouseX >= x && canvasMouseX <= x + width;
 
-              const onRightEdge =
-                Math.abs(e.clientX - (x + width)) <= threshold &&
-                e.clientY >= y &&
-                e.clientY <= y + height;
+      const onLeftEdge =
+        Math.abs(canvasMouseX - x) <= threshold &&
+        canvasMouseY >= y && canvasMouseY <= y + height;
 
-              if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) {
-                return false;
-              }
-            }
-            return true;
-          }));
-        }
+      const onRightEdge =
+        Math.abs(canvasMouseX - (x + width)) <= threshold &&
+        canvasMouseY >= y && canvasMouseY <= y + height;
+
+      if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) return false;
+    }
+    return true;
+  }));
+}
       }
     };
 
@@ -357,7 +352,7 @@ function applyTransform() {
   applyTransform();
 }
 
-      const handleZoomIn = () => {
+    const handleZoomIn = () => {
       const canvas = canvasref.current;
       if (!canvas) return;
       const centerX = canvas.width / 2;
@@ -431,3 +426,8 @@ function applyTransform() {
     </div>
   );
 }
+
+//Problems:
+// 3. sometimes when refresh it send empty shapes to server which causes all shapes to disappear
+// have to sent zoomin,zoomout,scale,currentx,currenty in server
+// add zoom percentage display
