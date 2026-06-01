@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSocket } from "../../../hooks/useSocket";
 import { useParams } from "next/navigation";
+import { API_BASE_URL } from "@repo/backend-common/config";
 
 type Shape =
   | {
@@ -50,7 +51,6 @@ function draw(
   shapes: Shape[],
   canvas: HTMLCanvasElement,
 ) {
-
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -77,7 +77,7 @@ function draw(
 export default function Canvas() {
   const canvasref = useRef<HTMLCanvasElement>(null);
   const [buttonType, setButtonType] = useState<
-    "circle" | "rectangle" | "line" | "eraser"|"zoomin"|"zoomout"|"drag"
+    "circle" | "rectangle" | "line" | "eraser" | "zoomin" | "zoomout" | "drag"
   >("circle");
   const { socket, loading } = useSocket();
   const shapeTypeRef = useRef(buttonType);
@@ -88,24 +88,22 @@ export default function Canvas() {
   const [sendShapes, setSendShapes] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
+  function applyTransform() {
+    const canvas = canvasref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-function applyTransform() {
-  const canvas = canvasref.current;
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+    ctx.setTransform(scale, 0, 0, scale, panX, panY);
+    draw(ctx, shapesRef.current, canvas);
+  }
 
-  ctx.setTransform(scale, 0, 0, scale, panX, panY);
-  draw(ctx, shapesRef.current, canvas);
-}
-
-//fetch existing shapes from server when component mounts
+  //fetch existing shapes from server when component mounts
   useEffect(() => {
     const fetchShapes = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/chats/${roomId}`);
+        const response = await fetch(`${API_BASE_URL}/chats/${roomId}`);
         const data = await response.json();
-        console.log("Fetched shapes:", JSON.parse(data[0].shapes));
         setShapes(JSON.parse(data[0].shapes));
       } catch (error) {
         console.log("Error fetching shapes:", error);
@@ -174,8 +172,8 @@ function applyTransform() {
 
     const handleMouseDown = (e: MouseEvent) => {
       clicked = true;
-      startX = e.clientX - panX;
-      startY = e.clientY - panY;
+      startX = (e.clientX - panX) / scale;
+      startY = (e.clientY - panY) / scale;
       lastX = e.clientX;
       lastY = e.clientY;
     };
@@ -196,23 +194,28 @@ function applyTransform() {
       } else if (shapeTypeRef.current == "line") {
         setShapes((prevShapes) => [
           ...prevShapes,
-          { type: "line", startX, startY, endX: e.clientX - panX, endY: e.clientY - panY },
+          {
+            type: "line",
+            startX,
+            startY,
+            endX: (e.clientX - panX) / scale,
+            endY: (e.clientY - panY) / scale,
+          },
         ]);
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (clicked) {
-
-        const currentX = e.clientX - panX;
-        const currentY = e.clientY - panY;
+        const currentX = (e.clientX - panX) / scale;
+        const currentY = (e.clientY - panY) / scale;
 
         width = currentX - startX;
         height = currentY - startY;
 
         draw(ctx, shapesRef.current, canvas);
 
-        if(shapeTypeRef.current == "drag"){
+        if (shapeTypeRef.current == "drag") {
           const dx = e.clientX - lastX;
           const dy = e.clientY - lastY;
 
@@ -244,70 +247,74 @@ function applyTransform() {
           ctx.lineTo(currentX, currentY);
           ctx.stroke();
         } else {
-  const canvasMouseX = (e.clientX - panX) / scale;
-  const canvasMouseY = (e.clientY - panY) / scale;
+          const canvasMouseX = (e.clientX - panX) / scale;
+          const canvasMouseY = (e.clientY - panY) / scale;
 
-  setShapes(prevShapes => prevShapes.filter((shape) => {
-    if (shape.type === "line") {
-      const dx = shape.endX - shape.startX;
-      const dy = shape.endY - shape.startY;
-      const lineLength = Math.sqrt(dx * dx + dy * dy);
+          setShapes((prevShapes) =>
+            prevShapes.filter((shape) => {
+              if (shape.type === "line") {
+                const dx = shape.endX - shape.startX;
+                const dy = shape.endY - shape.startY;
+                const lineLength = Math.sqrt(dx * dx + dy * dy);
 
-      const cross =
-        dx * (canvasMouseY - shape.startY) -
-        (canvasMouseX - shape.startX) * dy;
+                const cross =
+                  dx * (canvasMouseY - shape.startY) -
+                  (canvasMouseX - shape.startX) * dy;
 
-      const distance = Math.abs(cross) / lineLength;
+                const distance = Math.abs(cross) / lineLength;
 
-      const withinX =
-        canvasMouseX >= Math.min(shape.startX, shape.endX) - 10 &&
-        canvasMouseX <= Math.max(shape.startX, shape.endX) + 10;
-      const withinY =
-        canvasMouseY >= Math.min(shape.startY, shape.endY) - 10 &&
-        canvasMouseY <= Math.max(shape.startY, shape.endY) + 10;
+                const withinX =
+                  canvasMouseX >= Math.min(shape.startX, shape.endX) - 10 &&
+                  canvasMouseX <= Math.max(shape.startX, shape.endX) + 10;
+                const withinY =
+                  canvasMouseY >= Math.min(shape.startY, shape.endY) - 10 &&
+                  canvasMouseY <= Math.max(shape.startY, shape.endY) + 10;
 
-      if (distance <= 8 && withinX && withinY) return false;
+                if (distance <= 8 && withinX && withinY) return false;
+              } else if (shape.type === "circle") {
+                const dx = canvasMouseX - shape.centerX;
+                const dy = canvasMouseY - shape.centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
-    } else if (shape.type === "circle") {
-      const dx = canvasMouseX - shape.centerX;
-      const dy = canvasMouseY - shape.centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+                if (Math.abs(distance - shape.radius) <= 8) return false;
+              } else if (shape.type === "rect") {
+                const { x, y, width, height } = shape;
+                const threshold = 8;
 
-      if (Math.abs(distance - shape.radius) <= 8) return false;
+                const onTopEdge =
+                  Math.abs(canvasMouseY - y) <= threshold &&
+                  canvasMouseX >= x &&
+                  canvasMouseX <= x + width;
 
-    } else if (shape.type === "rect") {
-      const { x, y, width, height } = shape;
-      const threshold = 8;
+                const onBottomEdge =
+                  Math.abs(canvasMouseY - (y + height)) <= threshold &&
+                  canvasMouseX >= x &&
+                  canvasMouseX <= x + width;
 
-      const onTopEdge =
-        Math.abs(canvasMouseY - y) <= threshold &&
-        canvasMouseX >= x && canvasMouseX <= x + width;
+                const onLeftEdge =
+                  Math.abs(canvasMouseX - x) <= threshold &&
+                  canvasMouseY >= y &&
+                  canvasMouseY <= y + height;
 
-      const onBottomEdge =
-        Math.abs(canvasMouseY - (y + height)) <= threshold &&
-        canvasMouseX >= x && canvasMouseX <= x + width;
+                const onRightEdge =
+                  Math.abs(canvasMouseX - (x + width)) <= threshold &&
+                  canvasMouseY >= y &&
+                  canvasMouseY <= y + height;
 
-      const onLeftEdge =
-        Math.abs(canvasMouseX - x) <= threshold &&
-        canvasMouseY >= y && canvasMouseY <= y + height;
-
-      const onRightEdge =
-        Math.abs(canvasMouseX - (x + width)) <= threshold &&
-        canvasMouseY >= y && canvasMouseY <= y + height;
-
-      if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge) return false;
-    }
-    return true;
-  }));
-}
+                if (onTopEdge || onBottomEdge || onLeftEdge || onRightEdge)
+                  return false;
+              }
+              return true;
+            }),
+          );
+        }
       }
     };
 
     const handleScroll = (e: WheelEvent) => {
-
-     e.preventDefault();
-     panX -= e.deltaX;
-     panY -= e.deltaY;
+      e.preventDefault();
+      panX -= e.deltaX;
+      panY -= e.deltaY;
       applyTransform();
     };
 
@@ -340,33 +347,32 @@ function applyTransform() {
   }, []);
 
   function zoomAt(centerX: number, centerY: number, factor: number) {
+    const canvasX = (centerX - panX) / scale;
+    const canvasY = (centerY - panY) / scale;
 
-  const canvasX = (centerX - panX) / scale;
-  const canvasY = (centerY - panY) / scale;
+    scale *= factor;
 
-  scale *= factor;
+    panX = centerX - canvasX * scale;
+    panY = centerY - canvasY * scale;
 
-  panX = centerX - canvasX * scale;
-  panY = centerY - canvasY * scale;
+    applyTransform();
+  }
 
-  applyTransform();
-}
+  const handleZoomIn = () => {
+    const canvas = canvasref.current;
+    if (!canvas) return;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    zoomAt(centerX, centerY, 1.2);
+  };
 
-    const handleZoomIn = () => {
-      const canvas = canvasref.current;
-      if (!canvas) return;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      zoomAt(centerX, centerY, 1.2);
-    };
-
-    const handleZoomOut = () => {
-      const canvas = canvasref.current;
-      if (!canvas) return;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      zoomAt(centerX, centerY, 0.8);
-    };
+  const handleZoomOut = () => {
+    const canvas = canvasref.current;
+    if (!canvas) return;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    zoomAt(centerX, centerY, 0.8);
+  };
 
   return (
     <div className="">
@@ -398,14 +404,19 @@ function applyTransform() {
         </button>
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() =>{ setButtonType("zoomin"); handleZoomIn();}}
-        
+          onClick={() => {
+            setButtonType("zoomin");
+            handleZoomIn();
+          }}
         >
           Zoom In
         </button>
         <button
           className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() =>{ setButtonType("zoomout"); handleZoomOut();}}
+          onClick={() => {
+            setButtonType("zoomout");
+            handleZoomOut();
+          }}
         >
           Zoom Out
         </button>
@@ -428,6 +439,7 @@ function applyTransform() {
 }
 
 //Problems:
-// 3. sometimes when refresh it send empty shapes to server which causes all shapes to disappear
+// line draw isn't working properly when zoomed
+// sometimes when refresh it send empty shapes to server which causes all shapes to disappear
 // have to sent zoomin,zoomout,scale,currentx,currenty in server
 // add zoom percentage display

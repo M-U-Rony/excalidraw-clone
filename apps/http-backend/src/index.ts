@@ -155,7 +155,6 @@ app.get("/chats/:roomId", async (req, res) => {
         roomId: Number(roomId),
       }
     });
-    console.log(messages);
   
     res.json(messages);
   } catch (error) {

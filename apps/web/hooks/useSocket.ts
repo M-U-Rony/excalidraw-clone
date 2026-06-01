@@ -1,5 +1,6 @@
 "use client";
 
+import { WS_BASE_URL } from "@repo/backend-common/config";
 import { useEffect, useState } from "react";
 
 export function useSocket(){
@@ -10,7 +11,7 @@ export function useSocket(){
     useEffect(()=>{
 
         setloading(true);
-        const ws = new WebSocket(`ws://localhost:8080`);
+        const ws = new WebSocket(`${WS_BASE_URL}`);
 
         ws.onopen = () =>{
             console.log('connected')
