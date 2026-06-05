@@ -22,7 +22,9 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: 22
         script: |
+          source ~/.bashrc || source ~/.profile
           cd excalidraw-clone
+          git reset --hard
           git pull origin main
           pnpm install --production=false
           cd packages/db && pnpm exec prisma generate && pnpm exec prisma db push && cd ../..
