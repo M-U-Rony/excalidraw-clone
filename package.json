@@ -16,12 +16,5 @@
   "packageManager": "pnpm@11.5.0",
   "engines": {
     "node": ">=18"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/engines",
-      "prisma",
-      "sharp"
-    ]
   }
 }
