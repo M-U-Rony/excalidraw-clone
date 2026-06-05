@@ -87,6 +87,7 @@ export default function Canvas() {
   const roomId = params.roomid;
   const [sendShapes, setSendShapes] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [zoomPercent, setZoomPercent] = useState(100);
 
   function applyTransform() {
     const canvas = canvasref.current;
@@ -356,6 +357,7 @@ export default function Canvas() {
     panY = centerY - canvasY * scale;
 
     applyTransform();
+    setZoomPercent(Math.round(scale * 100));
   }
 
   const handleZoomIn = () => {
@@ -375,56 +377,107 @@ export default function Canvas() {
   };
 
   return (
-    <div className="">
-      <div className="absolute top-4 left-4 flex gap-2">
+    <div className="relative w-screen h-screen overflow-hidden bg-zinc-50">
+      {/* Top Floating Toolbar (Middle of the screen) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 p-1.5 rounded-2xl shadow-lg transition-all duration-300">
         <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          title="Circle"
+          className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+            buttonType === "circle"
+              ? "bg-violet-50 text-violet-600 border-violet-500 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border-transparent"
+          }`}
           onClick={() => setButtonType("circle")}
         >
-          Circle
-        </button>
-        <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => setButtonType("rectangle")}
-        >
-          Rectangle
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8" />
+          </svg>
         </button>
 
         <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          title="Rectangle"
+          className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+            buttonType === "rectangle"
+              ? "bg-violet-50 text-violet-600 border-violet-500 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border-transparent"
+          }`}
+          onClick={() => setButtonType("rectangle")}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+          </svg>
+        </button>
+
+        <button
+          title="Line"
+          className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+            buttonType === "line"
+              ? "bg-violet-50 text-violet-600 border-violet-500 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border-transparent"
+          }`}
           onClick={() => setButtonType("line")}
         >
-          Line
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <line x1="4" y1="20" x2="20" y2="4" />
+          </svg>
         </button>
+
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
         <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          title="Eraser"
+          className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+            buttonType === "eraser"
+              ? "bg-violet-50 text-violet-600 border-violet-500 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border-transparent"
+          }`}
           onClick={() => setButtonType("eraser")}
         >
-          Eraser
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L21 6C22 7 22 9 21 10L12 19M17 17L12 12" />
+          </svg>
         </button>
+
         <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => {
-            setButtonType("zoomin");
-            handleZoomIn();
-          }}
-        >
-          Zoom In
-        </button>
-        <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
-          onClick={() => {
-            setButtonType("zoomout");
-            handleZoomOut();
-          }}
-        >
-          Zoom Out
-        </button>
-        <button
-          className="cursor-pointer bg-violet-500 text-white px-4 py-2 rounded"
+          title="Drag"
+          className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+            buttonType === "drag"
+              ? "bg-violet-50 text-violet-600 border-violet-500 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border-transparent"
+          }`}
           onClick={() => setButtonType("drag")}
         >
-          Drag
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path d="M12 2a2 2 0 0 1 2 2v8a1 1 0 0 0 2 0v-1.5a1.5 1.5 0 0 1 3 0v4.5A7.5 7.5 0 0 1 11.5 22h-1A7.5 7.5 0 0 1 3 14.5v-3a1.5 1.5 0 0 1 3 0V12a1 1 0 0 0 2 0V5.5a1.5 1.5 0 0 1 3 0V12a1 1 0 0 0 2 0V4a2 2 0 0 1 2-2z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Bottom Left Zoom Controls */}
+      <div className="absolute bottom-6 left-6 z-50 flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 p-1.5 rounded-xl shadow-lg">
+        <button
+          title="Zoom Out"
+          className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all duration-150 border-2 border-transparent"
+          onClick={handleZoomOut}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+        
+        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 w-12 text-center select-none">
+          {zoomPercent}%
+        </span>
+
+        <button
+          title="Zoom In"
+          className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all duration-150 border-2 border-transparent"
+          onClick={handleZoomIn}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         </button>
       </div>
 
@@ -432,14 +485,18 @@ export default function Canvas() {
         ref={canvasref}
         height={size.height}
         width={size.width}
-        className={`border-2 border-black ${buttonType === "drag" ? "cursor-grab" : "cursor-crosshair"}`}
+        className={`w-full h-full block bg-zinc-50 ${
+          buttonType === "drag" ? "cursor-grab" : "cursor-crosshair"
+        }`}
       />
     </div>
   );
 }
 
 //Problems:
-// line draw isn't working properly when zoomed
-// sometimes when refresh it send empty shapes to server which causes all shapes to disappear
+// line draw isn't working properly when zoomed circle works fine when zoomed
 // have to sent zoomin,zoomout,scale,currentx,currenty in server
 // add zoom percentage display
+// send curent pan and zoom to new users when they join
+// eraser not working with multiusers
+// ws coonection closed after some time of inactivity in prodcution
