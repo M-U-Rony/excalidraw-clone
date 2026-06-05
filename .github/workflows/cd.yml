@@ -22,7 +22,15 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: 22
         script: |
-          source ~/.bashrc || source ~/.profile
+          # 1. Load NVM (Node Version Manager) if installed
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+          # 2. Load PNPM path if installed via standalone script
+          export PNPM_HOME="$HOME/.local/share/pnpm"
+          export PATH="$PNPM_HOME:$PATH"
+
+          # 3. Rest of your deployment script
           cd excalidraw-clone
           git reset --hard
           git pull origin main
