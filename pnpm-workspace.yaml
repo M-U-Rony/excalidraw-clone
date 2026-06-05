@@ -2,6 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
-  - "@prisma/engines"
-  - "prisma"
-  - "sharp"
+  "@prisma/engines": true
+  "prisma": true
+  "sharp": true
